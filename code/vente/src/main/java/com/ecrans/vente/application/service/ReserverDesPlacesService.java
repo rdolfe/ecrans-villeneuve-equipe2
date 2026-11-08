@@ -1,6 +1,5 @@
 package com.ecrans.vente.application.service;
 
-import com.ecrans.vente.adapter.out.tarification.GrilleTarifaireFixe;
 import com.ecrans.vente.application.exception.SeanceInconnue;
 import com.ecrans.vente.application.port.in.DemandeBillet;
 import com.ecrans.vente.application.port.in.DemandeReservation;
@@ -8,6 +7,7 @@ import com.ecrans.vente.application.port.in.Reservation;
 import com.ecrans.vente.application.port.in.ReserverDesPlaces;
 import com.ecrans.vente.application.port.out.Commandes;
 import com.ecrans.vente.application.port.out.ConflitDeVersion;
+import com.ecrans.vente.application.port.out.GrilleTarifaire;
 import com.ecrans.vente.application.port.out.Paiements;
 import com.ecrans.vente.application.port.out.Seances;
 import com.ecrans.vente.domaine.commande.Billet;
@@ -27,8 +27,11 @@ import java.util.stream.Collectors;
 /**
  * Orchestration seulement : charger, faire décider le domaine, enregistrer, puis appeler le PSP.
  *
- * Choix d'agrégats (ADR-0002, option B) : Seance et Commande sont écrits dans la même transaction.
+ * Choix d’agrégats (ADR-0002 : deux agrégats) : Seance et Commande sont écrits dans la même transaction.
  * L'appel au PSP est fait APRÈS : on ne garde pas une transaction ouverte pendant un appel réseau.
+ *
+ * Étape 6 : le service dépendait de l'adapter GrilleTarifaireFixe (dépendance dans le mauvais sens).
+ * Il ne connaît plus que le port GrilleTarifaire : la vraie Tarification pourra le remplacer sans toucher ce code.
  */
 public class ReserverDesPlacesService implements ReserverDesPlaces {
 
@@ -37,11 +40,11 @@ public class ReserverDesPlacesService implements ReserverDesPlaces {
 
     private final Seances seances;
     private final Commandes commandes;
-    private final GrilleTarifaireFixe grille;
+    private final GrilleTarifaire grille;
     private final Paiements paiements;
     private final Clock horloge;
 
-    public ReserverDesPlacesService(Seances seances, Commandes commandes, GrilleTarifaireFixe grille,
+    public ReserverDesPlacesService(Seances seances, Commandes commandes, GrilleTarifaire grille,
                                     Paiements paiements, Clock horloge) {
         this.seances = seances;
         this.commandes = commandes;
