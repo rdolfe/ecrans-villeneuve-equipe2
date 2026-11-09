@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Les Écrans de Villeneuve · Réservation</title>
+<!-- Bonus 9.1 : une page simple (HTML, CSS, JavaScript, fetch) qui n'utilise QUE l'API REST de l'hexagone. -->
+<style>
+  :root {
+    --fond: #101114; --panneau: #17181d; --trait: #2a2c33; --texte: #ecebe7; --doux: #8d8c88;
+    --libre: #343842; --libre-survol: #464b57; --choisi: #e8b04a; --pris: #1a1b1f; --pris-trait: #24252b;
+    --ok: #7fc59a; --erreur: #ef8a7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 32px 20px 48px; display: grid; gap: 28px;
+         grid-template-columns: minmax(0, 1fr) 340px; }
+  header { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+           border-bottom: 1px solid var(--trait); padding-bottom: 16px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .2px; }
+  h1 span { color: var(--doux); font-weight: 400; }
+  .seance { color: var(--doux); font-size: 14px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--doux); margin: 0 0 14px; }
+
+  .salle { align-self: start; background: var(--panneau); border: 1px solid var(--trait); border-radius: 14px; padding: 28px 22px 22px; }
+  .ecran { height: 6px; margin: 0 8% 30px; border-radius: 50%; background: linear-gradient(90deg, transparent, #cfcab8, transparent);
+           box-shadow: 0 10px 30px rgba(207, 202, 184, .18); position: relative; }
+  .ecran::after { content: "ÉCRAN"; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+                  font-size: 10px; letter-spacing: 4px; color: var(--doux); }
+  .rangs { display: grid; gap: 8px; justify-content: center; }
+  .rang { display: grid; grid-template-columns: 22px repeat(6, 32px) 18px repeat(6, 32px) 22px; gap: 6px; align-items: center; }
+  .lettre { color: var(--doux); font-size: 12px; text-align: center; }
+  .place { height: 30px; border-radius: 7px 7px 4px 4px; border: 0; background: var(--libre); color: #b4b3ae;
+           font: inherit; font-size: 11px; cursor: pointer; transition: background .12s, transform .12s; }
+  .place:hover:not(:disabled) { background: var(--libre-survol); color: var(--texte); }
+  .place.choisie { background: var(--choisi); color: #1b1608; font-weight: 600; transform: translateY(-1px); }
+  .place:disabled { background: repeating-linear-gradient(135deg, #202127 0 3px, #15161a 3px 7px);
+                   box-shadow: inset 0 0 0 1px var(--pris-trait); color: transparent; cursor: not-allowed; }
+  .legende { display: flex; gap: 18px; justify-content: center; margin-top: 22px; font-size: 12px; color: var(--doux); }
+  .legende i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  aside { display: flex; flex-direction: column; gap: 18px; }
+  .bloc { background: var(--panneau); border: 1px solid var(--trait); border-radius: 14px; padding: 18px; }
+  .vide { color: var(--doux); font-size: 14px; margin: 0; }
+  .ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0;
+           border-bottom: 1px solid var(--trait); }
+  .ligne:last-child { border-bottom: 0; }
+  .ligne b { font-weight: 600; min-width: 34px; }
+  select { background: var(--libre); color: var(--texte); border: 1px solid var(--trait); border-radius: 6px;
+           padding: 5px 8px; font: inherit; font-size: 13px; }
+  .compteur { font-size: 12px; color: var(--doux); margin-top: 10px; }
+  button.action { width: 100%; padding: 12px 14px; border-radius: 10px; border: 0; font: inherit; font-weight: 600;
+                  cursor: pointer; background: var(--texte); color: var(--fond); transition: opacity .12s; }
+  button.action.secondaire { background: transparent; color: var(--texte); border: 1px solid var(--trait); }
+  button.action:disabled { opacity: .35; cursor: not-allowed; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 14px; font-size: 14px; }
+  dt { color: var(--doux); }
+  dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .total { font-size: 20px; font-weight: 600; }
+  .message { font-size: 14px; border-radius: 10px; padding: 12px 14px; margin: 0; }
+  .message.ok { background: rgba(127, 197, 154, .1); color: var(--ok); }
+  .message.erreur { background: rgba(239, 138, 122, .1); color: var(--erreur); }
+  .message code { font-size: 12px; opacity: .8; }
+  footer { grid-column: 1 / -1; color: var(--doux); font-size: 12px; border-top: 1px solid var(--trait); padding-top: 14px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .rang { grid-template-columns: 16px repeat(6, 1fr) 8px repeat(6, 1fr) 16px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Les Écrans de Villeneuve <span>· réservation</span></h1>
+    <div class="seance">Séance <b id="seance">S42</b> · demain, 20 h 30 · salle 3</div>
+  </header>
+
+  <section class="salle" aria-label="Plan de salle">
+    <div class="ecran"></div>
+    <div class="rangs" id="plan"></div>
+    <div class="legende">
+      <span><i style="background:var(--libre)"></i>Libre</span>
+      <span><i style="background:var(--choisi)"></i>Votre choix</span>
+      <span><i style="background:repeating-linear-gradient(135deg,#2a2b31 0 2px,#15161a 2px 4px)"></i>Bloquée ou vendue</span>
+    </div>
+  </section>
+
+  <aside>
+    <div class="bloc">
+      <h2>Vos places</h2>
+      <div id="choix"><p class="vide">Cliquez sur un fauteuil libre.</p></div>
+      <div class="compteur" id="compteur">0 / 10 places (B3)</div>
+    </div>
+    <button class="action" id="reserver" disabled>Réserver</button>
+    <div class="bloc" id="commande" hidden>
+      <h2>Commande</h2>
+      <dl>
+        <dt>Numéro</dt><dd id="numero"></dd>
+        <dt>Total</dt><dd class="total" id="total"></dd>
+        <dt>Payer avant</dt><dd id="payerAvant"></dd>
+        <dt>Temps restant</dt><dd id="restant"></dd>
+      </dl>
+      <button class="action secondaire" id="payer">Simuler le paiement PayVia</button>
+    </div>
+    <p class="message" id="message" hidden></p>
+  </aside>
+
+  <footer>Page de démonstration : elle n'appelle que l'API REST (<code>GET /seances/{id}/places</code>,
+    <code>POST /seances/{id}/reservations</code>, <code>POST /webhooks/payvia</code>). Toutes les règles restent dans le domaine.</footer>
+</main>
+
+<script>
+  const SEANCE = "S42";
+  const RANGS = "ABCDEFGH".split("");
+  const PAR_RANG = 12;
+  const MAX = 10;                                   // B3 : rappel à l'écran, c'est le domaine qui décide
+  const CATEGORIES = [["PLEIN", "Plein"], ["REDUIT", "Réduit"], ["ENFANT", "Enfant"], ["MATIN", "Matin"], ["ABONNE", "Abonné"]];
+
+  const choix = new Map();                          // place → catégorie
+  let libres = new Set();
+  let commande = null;
+  let minuteur = null;
+
+  const $ = id => document.getElementById(id);
+
+  function dessinerPlan() {
+    const plan = $("plan");
+    plan.innerHTML = "";
+    for (const r of RANGS) {
+      const rang = document.createElement("div");
+      rang.className = "rang";
+      rang.append(lettre(r));
+      for (let n = 1; n <= PAR_RANG; n++) {
+        if (n === 7) rang.append(document.createElement("span"));          // allée centrale
+        const code = r + n;
+        const b = document.createElement("button");
+        b.className = "place" + (choix.has(code) ? " choisie" : "");
+        b.textContent = n;
+        b.title = code;
+        b.disabled = !libres.has(code) && !choix.has(code);
+        b.onclick = () => basculer(code);
+        rang.append(b);
+      }
+      rang.append(lettre(r));
+      plan.append(rang);
+    }
+  }
+
+  function lettre(r) {
+    const s = document.createElement("span");
+    s.className = "lettre";
+    s.textContent = r;
+    return s;
+  }
+
+  function basculer(code) {
+    if (choix.has(code)) choix.delete(code);
+    else if (choix.size < MAX) choix.set(code, "PLEIN");
+    else return afficher("erreur", "10 places au maximum par commande (B3).");
+    dessinerPlan();
+    dessinerChoix();
+  }
+
+  function dessinerChoix() {
+    const zone = $("choix");
+    zone.innerHTML = "";
+    if (choix.size === 0) zone.innerHTML = '<p class="vide">Cliquez sur un fauteuil libre.</p>';
+    for (const [place, categorie] of [...choix].sort(([a], [b]) => a.localeCompare(b, "fr", {numeric: true}))) {
+      const ligne = document.createElement("div");
+      ligne.className = "ligne";
+      const s = document.createElement("select");
+      for (const [valeur, libelle] of CATEGORIES) s.add(new Option(libelle, valeur, false, valeur === categorie));
+      s.onchange = () => choix.set(place, s.value);
+      ligne.append(Object.assign(document.createElement("b"), {textContent: place}), s);
+      zone.append(ligne);
+    }
+    $("compteur").textContent = `${choix.size} / ${MAX} places (B3)`;
+    $("reserver").disabled = choix.size === 0;
+  }
+
+  async function chargerPlan() {
+    try {
+      const r = await fetch(`/seances/${SEANCE}/places`);
+      if (!r.ok) throw await probleme(r);
+      const plan = await r.json();
+      libres = new Set(plan.places.filter(p => p.libre).map(p => p.place));
+    } catch (e) {
+      afficher("erreur", e.message);
+    }
+    dessinerPlan();
+  }
+
+  async function reserver() {
+    const billets = [...choix].map(([place, categorie]) => ({place, categorie}));
+    try {
+      const r = await fetch(`/seances/${SEANCE}/reservations`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({billets})
+      });
+      if (!r.ok) throw await probleme(r);
+      commande = await r.json();
+      choix.clear();
+      montrerCommande();
+      afficher("ok", "Places bloquées 10 minutes le temps du paiement (B2).");
+    } catch (e) {
+      afficher("erreur", e.message);
+    }
+    dessinerChoix();
+    await chargerPlan();
+  }
+
+  async function payer() {
+    if (!commande) return;
+    // La notification telle que PayVia l'envoie (annexe A) ; la référence est notre numéro de commande.
+    const notification = {
+      event: "payment.succeeded", payment_id: "pv_demo_" + Date.now(), reference: commande.commande,
+      amount: commande.totalCentimes, currency: "EUR", occurred_at: new Date().toISOString()
+    };
+    try {
+      const r = await fetch("/webhooks/payvia", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(notification)
+      });
+      if (!r.ok) throw await probleme(r);
+      afficher("ok", `Paiement reçu : la commande ${commande.commande} est payée, ses places sont vendues.`);
+      $("payer").disabled = true;
+      clearInterval(minuteur);
+      $("restant").textContent = "payée";
+    } catch (e) {
+      afficher("erreur", e.message);
+    }
+    await chargerPlan();
+  }
+
+  function montrerCommande() {
+    $("commande").hidden = false;
+    $("payer").disabled = false;
+    $("numero").textContent = commande.commande;
+    $("total").textContent = commande.total;
+    const limite = new Date(commande.payerAvant);
+    $("payerAvant").textContent = limite.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"});
+    clearInterval(minuteur);
+    const tic = () => {
+      const s = Math.max(0, Math.round((limite - Date.now()) / 1000));
+      $("restant").textContent = s > 0 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s` : "expiré";
+      if (s === 0) clearInterval(minuteur);
+    };
+    tic();
+    minuteur = setInterval(tic, 1000);
+  }
+
+  async function probleme(reponse) {
+    let detail = reponse.statusText;
+    try { detail = (await reponse.json()).detail || detail; } catch (_) { /* corps vide */ }
+    return new Error(`${detail} (HTTP ${reponse.status})`);
+  }
+
+  function afficher(type, texte) {
+    const m = $("message");
+    m.hidden = false;
+    m.className = "message " + type;
+    m.textContent = texte;
+  }
+
+  $("reserver").onclick = reserver;
+  $("payer").onclick = payer;
+  chargerPlan();
+  setInterval(chargerPlan, 15000);                  // les ventes des autres canaux apparaissent toutes seules
+</script>
+</body>
+</html>
